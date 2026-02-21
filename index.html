@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Comment System</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+  </head>
+
+  <body>
+    <div class="container">
+      <h2>Comment Section</h2>
+
+      <input
+        type="text"
+        id="username"
+        placeholder="Enter your name"
+        oninput="validateName()"
+      />
+      <div id="nameError" class="error"></div>
+
+      <input
+        type="text"
+        id="city"
+        placeholder="Enter your city"
+        oninput="validateCity()"
+      />
+      <div id="cityError" class="error"></div>
+
+      <textarea
+        id="commentText"
+        placeholder="Write comment"
+        oninput="validateComment()"
+      ></textarea>
+      <div id="commentError" class="error"></div>
+
+      <label>Select Language:</label>
+      <select id="languageSelect">
+        <option value="hi">Hindi</option>
+        <option value="ta">Tamil</option>
+        <option value="fr">French</option>
+        <option value="es">Spanish</option>
+        <option value="de">German</option>
+      </select>
+
+      <button id="submitBtn" onclick="addComment()" disabled>
+        Submit Comment
+      </button>
+
+      <hr />
+
+      <div id="comments"></div>
+    </div>
+
+    <script>
+      const baseURL = "http://127.0.0.1:3000";
+      window.onload = fetchComments;
+
+      const nameCityPattern = /^[\p{L}\s]+$/u;
+      const commentInvalidPattern = /[<>${};]/;
+
+      function validateName() {
+        const value = document.getElementById("username").value;
+        document.getElementById("nameError").textContent = nameCityPattern.test(
+          value,
+        )
+          ? ""
+          : "Invalid name";
+        toggleButton();
+      }
+
+      function validateCity() {
+        const value = document.getElementById("city").value;
+        document.getElementById("cityError").textContent = nameCityPattern.test(
+          value,
+        )
+          ? ""
+          : "Invalid city";
+        toggleButton();
+      }
+
+      function validateComment() {
+        const value = document.getElementById("commentText").value;
+        document.getElementById("commentError").textContent =
+          commentInvalidPattern.test(value) ? "Invalid special characters" : "";
+        toggleButton();
+      }
+
+      function toggleButton() {
+        const nameError = document.getElementById("nameError").textContent;
+        const cityError = document.getElementById("cityError").textContent;
+        const commentError =
+          document.getElementById("commentError").textContent;
+
+        document.getElementById("submitBtn").disabled =
+          nameError || cityError || commentError;
+      }
+
+      //   ADD COMMENT
+
+      async function addComment() {
+        const username = document.getElementById("username").value;
+        const city = document.getElementById("city").value;
+        const commentText = document.getElementById("commentText").value;
+
+        const response = await fetch(baseURL + "/add-comment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, city, commentText }),
+        });
+
+        const data = await response.json();
+        alert(data.message);
+
+        document.getElementById("commentText").value = "";
+        fetchComments();
+      }
+
+      //FETCH COMMENTS
+
+      async function fetchComments() {
+        const response = await fetch(baseURL + "/comments");
+        const comments = await response.json();
+
+        const commentDiv = document.getElementById("comments");
+        commentDiv.innerHTML = "";
+
+        comments.forEach((comment) => {
+          commentDiv.innerHTML += `
+    <div class="comment-card">
+
+        <div class="comment-header">
+            ${comment.username} (${comment.city})
+        </div>
+
+        <p>${comment.commentText}</p>
+
+        <div class="action-row">
+
+            <button class="icon-btn" onclick="likeComment('${comment._id}')">
+                <i class="fa-solid fa-thumbs-up"></i>
+                <span class="count">${comment.likes}</span>
+            </button>
+
+            <button class="icon-btn" onclick="dislikeComment('${comment._id}')">
+                <i class="fa-solid fa-thumbs-down"></i>
+                <span class="count">${comment.dislikes}</span>
+            </button>
+
+            <button class="icon-btn" onclick="translateCommentById('${comment._id}')">
+                <i class="fa-solid fa-globe"></i>
+            </button>
+
+        </div>
+
+    </div>
+`;
+        });
+      }
+
+      //LIKE
+
+      async function likeComment(id) {
+        await fetch(baseURL + "/like/" + id, { method: "PUT" });
+        fetchComments();
+      }
+
+      //DISLIKE
+
+      async function dislikeComment(id) {
+        await fetch(baseURL + "/dislike/" + id, { method: "PUT" });
+        fetchComments();
+      }
+
+      async function translateCommentById(id) {
+        const response = await fetch(baseURL + "/comments");
+        const comments = await response.json();
+
+        const comment = comments.find((c) => c._id === id);
+
+        if (!comment) {
+          alert("Comment not found");
+          return;
+        }
+
+        const selectedLanguage =
+          document.getElementById("languageSelect").value;
+
+        const translateResponse = await fetch(baseURL + "/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: comment.commentText,
+            targetLanguage: selectedLanguage,
+          }),
+        });
+
+        const data = await translateResponse.json();
+
+        if (data.translatedText) {
+          alert("Translated: " + data.translatedText);
+        } else {
+          alert("Translation failed");
+        }
+      }
+    </script>
+  </body>
+</html>
